@@ -1,6 +1,6 @@
 # Okapi
 
-Okapi is a basic Discord chatbot, using [Mistral 8B](https://mistral.ai/news/ministraux).
+Okapi is a basic Discord chatbot, using [Mistral](https://docs.mistral.ai/getting-started/models/models_overview/).
 
 ## Installation
 
@@ -12,7 +12,7 @@ pip install -r requirements.txt
 
 ## Contributing
 
-This project is currently private.
+Contributions are temporarily closed while in active development
 
 ## License
 

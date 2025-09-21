@@ -19,7 +19,6 @@ TARGET_GUILD = discord.Object(id=int(GUILD_ID)) if GUILD_ID else None
 
 BOT_START_TIME_EPOCH_S = time.time()
 
-# Define the ping slash command
 @app_commands.command(name='ping', description="Returns the bot's latency")
 @app_commands.describe(verbose="Include diagnostic info (ephemeral)")
 async def ping(interaction: discord.Interaction, verbose: bool = False):
@@ -28,7 +27,7 @@ async def ping(interaction: discord.Interaction, verbose: bool = False):
     responded_at = datetime.now(timezone.utc)
     embed = discord.Embed(
         title="Pong!",
-        description="Bark! (Okapi's bark!)",
+        description="Bark!",
         color=discord.Color(0x7ed957),
     )
     embed.add_field(name="Latency", value=f"{latency_ms} ms", inline=True)
@@ -60,7 +59,7 @@ async def ping(interaction: discord.Interaction, verbose: bool = False):
         embed.add_field(name="Bot", value=bot_identity, inline=False)
 
     embed.set_footer(
-        text=f"Responded at {responded_at.strftime('%Y-%m-%d %H:%M:%S UTC')} • No model"
+        text="No model"
     )
     embed.timestamp = responded_at
 
