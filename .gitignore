@@ -1,8 +1,6 @@
-# Environment variables
 .env
 .env.local
 
-# Python
 venv/
 __pycache__/
 *.pyc
@@ -10,23 +8,19 @@ __pycache__/
 *.pyd
 .Python
 
-# Logs
 logs/*.log
 *.log
 
-# Data files
 data/*.db
 data/*.json
 
-# OS files
 .DS_Store
 Thumbs.db
 
-# IDE files
 .vscode/
 .idea/
+.claude/
 
-# Misc folders
 /config
 /data
 /logs
