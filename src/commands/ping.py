@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 import discord
 from discord import app_commands
 
-from config import BOT_START_TIME_EPOCH_S, MODEL_DISPLAY_NAME
+from config import BOT_START_TIME_EPOCH_S
 
 
 @app_commands.command(name="ping", description="Returns the bot's latency")
@@ -54,7 +54,7 @@ async def ping(interaction: discord.Interaction, verbose: bool = False):
         )
         embed.add_field(name="Bot", value=bot_identity, inline=False)
 
-    embed.set_footer(text=MODEL_DISPLAY_NAME)
+    embed.set_footer(text="No model")
     embed.timestamp = responded_at
 
     await interaction.response.send_message(

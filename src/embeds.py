@@ -10,9 +10,9 @@ SUCCESS_COLOR = discord.Color(0x7ED957)
 ERROR_COLOR = discord.Color(0xE74C3C)
 
 """
-    embeds.py: Helps to streamline the embed creation process by simplifying
-    into a function that accepts a title and description as args while
-    automatically appending the basic footer
+embeds.py: Provides a helper function to simplify Discord embed creation.
+Takes a title and description as arguments, and automatically applies a
+standard footer for consistency across embeds.
 """
 
 
