@@ -9,12 +9,6 @@ from config import MODEL_DISPLAY_NAME
 SUCCESS_COLOR = discord.Color(0x7ED957)
 ERROR_COLOR = discord.Color(0xE74C3C)
 
-"""
-embeds.py: Provides a helper function to simplify Discord embed creation.
-Takes a title and description as arguments, and automatically applies a
-standard footer for consistency across embeds.
-"""
-
 
 def build_success_embed(title: str, description: str) -> discord.Embed:
     embed = discord.Embed(

@@ -37,5 +37,5 @@ repos:
         entry: bash
         language: system
         pass_filenames: false
-        stages: [push, manual]
+        stages: [pre-push, manual]
         args: [scripts/run-tests.sh]

@@ -3,14 +3,12 @@ set -euo pipefail
 
 shopt -s nullglob globstar
 
-# Discover files that match pytest's default naming
 mapfile -t test_files < <(printf '%s\n' \
   tests/**/test_*.py tests/**/**/*_test.py \
   tests/test_*.py tests/*_test.py 2>/dev/null || true)
 
 if (( ${#test_files[@]} > 0 )); then
   echo "Running pytest on ${#test_files[@]} test file(s)..."
-  # Allow pytest to return nonzero
   set +e
   python -m pytest -q
   pytest_exit=$?
