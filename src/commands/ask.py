@@ -4,6 +4,7 @@ import discord
 from discord import app_commands
 
 from embeds import build_error_embed, build_success_embed
+from config import MODEL_DISPLAY_NAME
 from mistral_client import MistralClient
 from context_manager import ContextManager
 from context_tools import ContextTools, process_tool_calls
@@ -85,7 +86,9 @@ async def ask(interaction: discord.Interaction, query: str):
 
         await context_mgr.add_bot_response(channel_id, answer_text)
 
-        embed = build_success_embed("Response", answer_text)
+        embed = build_success_embed(
+            "Response", answer_text, footer_text=MODEL_DISPLAY_NAME
+        )
         embed.add_field(name="Question", value=query[:1024], inline=False)
 
         if len(context.messages) > 2:
@@ -99,7 +102,7 @@ async def ask(interaction: discord.Interaction, query: str):
 
     except Exception as e:
         await interaction.followup.send(
-            embed=build_error_embed("Mistral error", str(e)),
+            embed=build_error_embed("Mistral error", str(e), footer_text="No model"),
             ephemeral=True,
         )
 
@@ -119,6 +122,7 @@ async def amnesia_command(interaction: discord.Interaction):
         embed = build_success_embed(
             "No Memory Found",
             "There's no conversation history to clear in this channel.",
+            footer_text="No model",
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
@@ -127,6 +131,7 @@ async def amnesia_command(interaction: discord.Interaction):
     embed = build_success_embed(
         "Memory Cleared",
         f"Successfully cleared {len(context.messages)} messages from conversation history.",
+        footer_text="No model",
     )
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -146,14 +151,48 @@ async def usage_command(interaction: discord.Interaction, detailed: bool = False
     )
 
     if not context or not context.messages:
-        embed = build_success_embed(
-            "No Conversation Data", "No conversation history found for this channel."
+        # Use discord.Embed with fields for all data
+        embed = discord.Embed(
+            title="No Conversation Data", color=discord.Color(0x7ED957)
         )
+        embed.add_field(
+            name="Status",
+            value="No conversation history found for this channel.",
+            inline=False,
+        )
+        embed.set_footer(text="No model")
+        embed.timestamp = discord.utils.utcnow()
         await interaction.response.send_message(embed=embed, ephemeral=True)
         return
 
-    summary = await context_mgr.get_conversation_summary(channel_id)
-    embed = build_success_embed("Conversation Usage", summary)
+    # Build embed using discord.py's Embed and fields
+    embed = discord.Embed(title="Conversation Usage", color=discord.Color(0x7ED957))
+    embed.set_footer(text="No model")
+    embed.timestamp = discord.utils.utcnow()
+
+    # Individual fields
+    total_messages = len(context.messages)
+    user_messages = sum(1 for msg in context.messages if not msg.is_bot)
+    bot_messages = total_messages - user_messages
+
+    embed.add_field(name="Channel", value=str(channel_id), inline=True)
+    embed.add_field(name="Messages", value=str(total_messages), inline=True)
+    embed.add_field(name="User Messages", value=str(user_messages), inline=True)
+    embed.add_field(name="Bot Messages", value=str(bot_messages), inline=True)
+    embed.add_field(name="Total Tokens", value=str(context.total_tokens), inline=True)
+    embed.add_field(
+        name="Context Limit", value=str(context_mgr.max_context_tokens), inline=True
+    )
+
+    # Age and activity
+    import time as _time
+
+    age_hours = (_time.time() - context.created_at) / 3600
+    inactive_hours = (_time.time() - context.last_activity) / 3600
+    embed.add_field(name="Age", value=f"{age_hours:.1f}h", inline=True)
+    embed.add_field(
+        name="Last Activity", value=f"{inactive_hours:.1f}h ago", inline=True
+    )
 
     if detailed and context.messages:
         recent_msgs = (
@@ -172,18 +211,15 @@ async def usage_command(interaction: discord.Interaction, detailed: bool = False
 
         user_tokens = sum(msg.token_count for msg in context.messages if not msg.is_bot)
         bot_tokens = sum(msg.token_count for msg in context.messages if msg.is_bot)
-        embed.add_field(
-            name="Token Distribution",
-            value=f"User: {user_tokens} | Bot: {bot_tokens}",
-            inline=True,
-        )
+        embed.add_field(name="User Tokens", value=str(user_tokens), inline=True)
+        embed.add_field(name="Bot Tokens", value=str(bot_tokens), inline=True)
 
         if context.total_tokens > context_mgr.max_context_tokens * 0.8:
-            health = "⚠️ Near Limit"
+            health = "Near limit"
         elif context.total_tokens > context_mgr.max_context_tokens * 0.6:
-            health = "🟡 Moderate"
+            health = "Sub-optimal"
         else:
-            health = "🟢 Healthy"
+            health = "Optimal"
         embed.add_field(name="Memory Health", value=health, inline=True)
 
     await interaction.response.send_message(embed=embed, ephemeral=True)

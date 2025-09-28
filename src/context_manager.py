@@ -136,7 +136,7 @@ class ContextManager:
 
         self.active_contexts: dict[str, ConversationContext] = {}
 
-        self.max_context_tokens = 4000
+        self.max_context_tokens = 128000
         self.max_conversations = 50
         self.conversation_timeout = 24 * 3600
         self.cleanup_interval = 3600
