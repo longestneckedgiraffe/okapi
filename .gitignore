@@ -10,6 +10,7 @@ __pycache__/
 
 logs/*.log
 *.log
+bot.pid
 
 data/*.db
 data/*.json

@@ -7,7 +7,13 @@ Okapi is a basic Discord chatbot, using [Mistral](https://docs.mistral.ai/gettin
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install Okapi's requirements in order to run it locally
 
 ```bash
+# Note: It's highly recommended to use a venv
 pip install -r requirements.txt
+```
+
+Copy the example environment file and update it with your own values
+```bash
+cp .env.example .env
 ```
 
 ## Contributing

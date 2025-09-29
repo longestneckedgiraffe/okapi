@@ -8,6 +8,8 @@ from pathlib import Path
 from typing import Any
 
 import discord
+from config import DATA_ENCRYPTION_KEY
+from crypto_utils import encrypt_json_bytes, decrypt_json_bytes
 
 
 @dataclass
@@ -173,8 +175,12 @@ class ContextManager:
     async def _save_context(self, context: ConversationContext) -> None:
         try:
             context_file = self._get_context_file(context.channel_id)
-            with open(context_file, "w") as f:
-                json.dump(context.to_dict(), f, indent=2)
+            plain = json.dumps(
+                context.to_dict(), separators=(",", ":"), ensure_ascii=False
+            ).encode("utf-8")
+            payload, _ = encrypt_json_bytes(plain, DATA_ENCRYPTION_KEY)
+            with open(context_file, "wb") as f:
+                f.write(payload)
         except Exception as e:
             print(f"Error saving context for channel {context.channel_id}: {e}")
 
@@ -182,8 +188,9 @@ class ContextManager:
         try:
             context_file = self._get_context_file(channel_id)
             if context_file.exists():
-                with open(context_file) as f:
-                    data = json.load(f)
+                raw = context_file.read_bytes()
+                plain = decrypt_json_bytes(raw, DATA_ENCRYPTION_KEY)
+                data = json.loads(plain.decode("utf-8"))
                 return ConversationContext.from_dict(data)
         except Exception as e:
             print(f"Error loading context for channel {channel_id}: {e}")

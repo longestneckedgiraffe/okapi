@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 
 from embeds import build_error_embed, build_success_embed
-from config import MODEL_DISPLAY_NAME
+from config import MODEL_DISPLAY_NAME, DATA_ENCRYPTION_KEY
 from mistral_client import MistralClient
 from context_manager import ContextManager
 from context_tools import ContextTools, process_tool_calls
@@ -49,6 +49,30 @@ async def ask(interaction: discord.Interaction, query: str):
 
         tools = ctx_tools.get_tool_definitions()
 
+        user_preferred_name = (
+            getattr(interaction.user, "global_name", None)
+            or getattr(interaction.user, "display_name", None)
+            or getattr(interaction.user, "name", None)
+            or "the user"
+        )
+        conversation_messages = [
+            {
+                "role": "system",
+                "content": (
+                    f"The current user's preferred name is '{user_preferred_name}'. "
+                    "Address them by name when appropriate and do not invent personal details."
+                ),
+            },
+            {
+                "role": "system",
+                "content": (
+                    "Avoid repeating prior answers. When follow-up is similar to a prior response, "
+                    "summarize new differences or provide additional insight. If nothing new can be added, "
+                    "say so briefly."
+                ),
+            },
+        ] + conversation_messages
+
         data = await client.create_context_aware_completion(
             conversation_messages=conversation_messages, tools=tools
         )
@@ -80,7 +104,24 @@ async def ask(interaction: discord.Interaction, query: str):
             choice = data.get("choices", [{}])[0]
             message = choice.get("message", {})
 
-        answer_text = message.get("content", "").strip()
+        # Some providers return content as a list of parts; normalize to string
+        raw_content = message.get("content", "")
+        if isinstance(raw_content, list):
+            parts: list[str] = []
+            for part in raw_content:
+                if isinstance(part, str):
+                    parts.append(part)
+                elif isinstance(part, dict):
+                    text_val = (
+                        part.get("text") or part.get("content") or part.get("value")
+                    )
+                    if isinstance(text_val, str):
+                        parts.append(text_val)
+            answer_text = "\n".join([p for p in parts if p]).strip()
+        elif isinstance(raw_content, str):
+            answer_text = raw_content.strip()
+        else:
+            answer_text = str(raw_content)
         if not answer_text:
             answer_text = "(No content returned by the model)"
 
@@ -221,5 +262,59 @@ async def usage_command(interaction: discord.Interaction, detailed: bool = False
         else:
             health = "Optimal"
         embed.add_field(name="Memory Health", value=health, inline=True)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@app_commands.command(
+    name="security", description="Show encryption status and context storage details"
+)
+async def security_command(interaction: discord.Interaction):
+    embed = discord.Embed(title="Security", color=discord.Color(0x7ED957))
+    embed.set_footer(text="No model")
+    embed.timestamp = discord.utils.utcnow()
+    key_active = bool(DATA_ENCRYPTION_KEY and DATA_ENCRYPTION_KEY.strip())
+    embed.add_field(
+        name="Key Active", value=("Yes" if key_active else "No"), inline=True
+    )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@app_commands.command(
+    name="privacy", description="Okapi privacy & data handling policy"
+)
+async def privacy_command(interaction: discord.Interaction):
+    embed = discord.Embed(title="Privacy", color=discord.Color(0x7ED957))
+    embed.set_footer(text="No model")
+    embed.timestamp = discord.utils.utcnow()
+    embed.add_field(
+        name="Encryption at Rest",
+        value=(
+            "Conversation data is encrypted at rest using AEAD (AES-GCM) when a server key is configured."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Limited Retention",
+        value=(
+            "Conversations are pruned for relevance and can be cleared any time with /amnesia."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="No Sensitive Data",
+        value=(
+            "Okapi does not store or transmit sensitive information beyond what is needed to fulfill your request."
+        ),
+        inline=False,
+    )
+    embed.add_field(
+        name="Open Source",
+        value=(
+            "View the code on GitHub: https://github.com/longestneckedgiraffe/okapi"
+        ),
+        inline=False,
+    )
 
     await interaction.response.send_message(embed=embed, ephemeral=True)

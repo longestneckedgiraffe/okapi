@@ -238,15 +238,20 @@ async def process_tool_calls(
     for tool_call in tool_calls:
         try:
             function_name = tool_call["function"]["name"]
-            arguments_str = tool_call["function"]["arguments"]
+            arguments_raw = tool_call["function"].get("arguments", {})
 
-            if not arguments_str or arguments_str.strip() == "":
-                arguments = {}
-            else:
-                try:
-                    arguments = json.loads(arguments_str)
-                except json.JSONDecodeError:
+            if isinstance(arguments_raw, dict):
+                arguments = arguments_raw
+            elif isinstance(arguments_raw, str):
+                if not arguments_raw.strip():
                     arguments = {}
+                else:
+                    try:
+                        arguments = json.loads(arguments_raw)
+                    except json.JSONDecodeError:
+                        arguments = {}
+            else:
+                arguments = {}
 
             result = await context_tools.execute_tool(
                 function_name, channel_id, arguments, discord_channel

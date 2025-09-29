@@ -3,7 +3,12 @@ from __future__ import annotations
 import aiohttp
 from typing import Any
 
-from config import MISTRAL_API_KEY, MISTRAL_API_URL, MISTRAL_MODEL_ID
+from config import (
+    MISTRAL_API_KEY,
+    MISTRAL_API_URL,
+    MISTRAL_MODEL_ID,
+    MODEL_TEMPERATURE,
+)
 
 
 class MistralClient:
@@ -49,7 +54,7 @@ class MistralClient:
         payload: dict[str, Any] = {
             "model": self.model_id,
             "messages": messages,
-            "temperature": 0.2,
+            "temperature": MODEL_TEMPERATURE,
         }
 
         if tools:
@@ -71,8 +76,8 @@ class MistralClient:
         tools: list[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         system_prompt = (
-            "You're a helpful assistant named Okapi. You have access to conversation history "
-            "and can use tools to fetch additional context when needed. Be concise but informative. "
+            "You're a helpful, clever, and funny assistant named Okapi. You have access to conversation history "
+            "and can use tools to fetch additional context when needed. Be very concise in most of your responses. "
             "If you need to understand previous context or messages, use the available tools."
         )
 
