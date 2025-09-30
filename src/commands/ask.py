@@ -43,9 +43,8 @@ async def ask(interaction: discord.Interaction, query: str):
             },
         )()
 
-        context = await context_mgr.add_user_message(channel_id, mock_message)
-
-        conversation_messages = context.get_mistral_messages()
+        # Store the message but DON'T automatically load conversation history
+        await context_mgr.add_user_message(channel_id, mock_message)
 
         tools = ctx_tools.get_tool_definitions()
 
@@ -55,6 +54,8 @@ async def ask(interaction: discord.Interaction, query: str):
             or getattr(interaction.user, "name", None)
             or "the user"
         )
+
+        # Only send the current query - let the model decide if it needs context
         conversation_messages = [
             {
                 "role": "system",
@@ -66,12 +67,18 @@ async def ask(interaction: discord.Interaction, query: str):
             {
                 "role": "system",
                 "content": (
-                    "Avoid repeating prior answers. When follow-up is similar to a prior response, "
-                    "summarize new differences or provide additional insight. If nothing new can be added, "
-                    "say so briefly."
+                    "You have access to conversation history tools. Use them ONLY when necessary:\n"
+                    "- Use 'fetch_recent_messages' if the user references previous messages, asks follow-up questions, or mentions 'earlier', 'before', 'previously', etc.\n"
+                    "- Use 'search_conversation_history' if the user asks about specific past topics or conversations.\n"
+                    "- For simple, standalone questions that don't require prior context, respond directly without using tools.\n"
+                    "Be efficient - don't fetch context unless it's needed to answer the question properly."
                 ),
             },
-        ] + conversation_messages
+            {
+                "role": "user",
+                "content": query,
+            },
+        ]
 
         data = await client.create_context_aware_completion(
             conversation_messages=conversation_messages, tools=tools
@@ -80,6 +87,10 @@ async def ask(interaction: discord.Interaction, query: str):
         choice = data.get("choices", [{}])[0]
         message = choice.get("message", {})
 
+        # Track if context was actually used
+        context_tools_used = False
+        tools_called = []
+
         if message.get("tool_calls"):
             tool_results = await process_tool_calls(
                 message["tool_calls"],
@@ -87,6 +98,16 @@ async def ask(interaction: discord.Interaction, query: str):
                 channel_id,
                 interaction.channel if hasattr(interaction, "channel") else None,
             )
+
+            # Track which tools were called
+            for tool_call in message["tool_calls"]:
+                tool_name = tool_call.get("function", {}).get("name", "")
+                tools_called.append(tool_name)
+                if tool_name in [
+                    "fetch_recent_messages",
+                    "search_conversation_history",
+                ]:
+                    context_tools_used = True
 
             conversation_messages.append(
                 {
@@ -132,10 +153,17 @@ async def ask(interaction: discord.Interaction, query: str):
         )
         embed.add_field(name="Question", value=query[:1024], inline=False)
 
-        if len(context.messages) > 2:
+        # Only show context usage if tools were actually called
+        if context_tools_used:
             embed.add_field(
                 name="Context",
-                value=f"Using {len(context.messages)-1} previous messages",
+                value="Used conversation history",
+                inline=True,
+            )
+        elif tools_called:
+            embed.add_field(
+                name="Tools Used",
+                value=", ".join(tools_called),
                 inline=True,
             )
 

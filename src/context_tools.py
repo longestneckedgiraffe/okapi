@@ -19,7 +19,7 @@ class ContextTools:
                 "type": "function",
                 "function": {
                     "name": "fetch_recent_messages",
-                    "description": "Fetch recent messages from the conversation history to understand context",
+                    "description": "Fetch recent conversation messages when the user asks a follow-up question, references 'earlier', 'before', 'you said', or when context is clearly needed to answer. Do NOT use for simple standalone questions.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -43,7 +43,7 @@ class ContextTools:
                 "type": "function",
                 "function": {
                     "name": "search_conversation_history",
-                    "description": "Search through conversation history for messages containing specific keywords or from specific users",
+                    "description": "Search conversation history for specific topics or keywords when the user explicitly asks about past discussions (e.g., 'what did we talk about regarding X'). Use only when searching past conversation, not for current questions.",
                     "parameters": {
                         "type": "object",
                         "properties": {

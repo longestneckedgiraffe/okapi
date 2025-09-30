@@ -4,8 +4,8 @@ import signal
 import sys
 
 from config import DISCORD_TOKEN, GUILD_ID, GUILD_IDS
-from commands.ping import ping
-from commands.ask import (
+from commands import (
+    ping,
     ask,
     amnesia_command,
     usage_command,
@@ -21,6 +21,7 @@ intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 # Build a de-duplicated list of allowed guilds. If provided, we only register per-guild (no globals).
+# This system is overly-complex due to bot latency in updating commands (09-30-25)
 allowed_guild_ids = set()
 if GUILD_ID:
     try:
@@ -107,7 +108,7 @@ if not DISCORD_TOKEN:
 
 
 def signal_handler(signum, frame):
-    print(f"\nReceived signal {signum}. Shutting down")
+    print(f"\nReceived signal {signum} (Shutting down)")
     context_mgr, _ = get_context_manager()
     context_mgr.shutdown()
     sys.exit(0)

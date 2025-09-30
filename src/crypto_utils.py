@@ -4,11 +4,11 @@ import base64
 import hashlib
 import os
 from dataclasses import dataclass
-from typing import Optional
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-MAGIC_HEADER = b"OKAPIENC1" 
+MAGIC_HEADER = b"OKAPIENC1"
+
 
 def _b64decode_maybe(data: str) -> bytes:
     try:
@@ -29,7 +29,9 @@ def derive_data_key(master_key: bytes, salt: bytes) -> bytes:
     return digest
 
 
-def encrypt_json_bytes(plaintext: bytes, master_key_str: str | None) -> tuple[bytes, Optional[EnvelopeKey]]:
+def encrypt_json_bytes(
+    plaintext: bytes, master_key_str: str | None
+) -> tuple[bytes, EnvelopeKey | None]:
     if not master_key_str:
         return plaintext, None
 

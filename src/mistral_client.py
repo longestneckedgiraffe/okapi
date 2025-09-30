@@ -26,7 +26,7 @@ class MistralClient:
         self,
         messages: list[dict[str, str]] = None,
         user_message: str = None,
-        system_prompt: str = "You're a helpful assistant named Okapi. You can access conversation history using tools when needed to provide context-aware responses.",
+        system_prompt: str = "You're a helpful assistant named Okapi. Use tools to access conversation history only when needed for context.",
         tools: list[dict[str, Any]] = None,
         tool_choice: str = "auto",
     ) -> dict[str, Any]:
@@ -76,9 +76,9 @@ class MistralClient:
         tools: list[dict[str, Any]] = None,
     ) -> dict[str, Any]:
         system_prompt = (
-            "You're a helpful, clever, and funny assistant named Okapi. You have access to conversation history "
-            "and can use tools to fetch additional context when needed. Be very concise in most of your responses. "
-            "If you need to understand previous context or messages, use the available tools."
+            "You're a helpful, clever, and funny assistant named Okapi. "
+            "You can access conversation history using tools when needed for follow-up questions or references to past discussions. "
+            "Be very concise in most responses. For standalone questions, answer directly without fetching context."
         )
 
         return await self.create_chat_completion(

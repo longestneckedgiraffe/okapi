@@ -11,11 +11,6 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install Okapi's
 pip install -r requirements.txt
 ```
 
-Copy the example environment file and update it with your own values
-```bash
-cp .env.example .env
-```
-
 ## Contributing
 
 Contributions are temporarily closed while in active development
