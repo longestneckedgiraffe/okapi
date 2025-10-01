@@ -3,6 +3,8 @@ from __future__ import annotations
 import discord
 from discord import app_commands
 
+from datetime import datetime, timezone
+
 from embeds import build_error_embed, build_success_embed
 from config import MODEL_DISPLAY_NAME, DATA_ENCRYPTION_KEY
 from mistral_client import MistralClient
@@ -55,8 +57,15 @@ async def ask(interaction: discord.Interaction, query: str):
             or "the user"
         )
 
-        # Only send the current query - let the model decide if it needs context
+        current_datetime = datetime.now(timezone.utc).strftime(
+            "%A, %B %d, %Y at %I:%M %p UTC"
+        )
+
         conversation_messages = [
+            {
+                "role": "system",
+                "content": f"The current date and time is {current_datetime}.",
+            },
             {
                 "role": "system",
                 "content": (
@@ -72,6 +81,26 @@ async def ask(interaction: discord.Interaction, query: str):
                     "- Use 'search_conversation_history' if the user asks about specific past topics or conversations.\n"
                     "- For simple, standalone questions that don't require prior context, respond directly without using tools.\n"
                     "Be efficient - don't fetch context unless it's needed to answer the question properly."
+                ),
+            },
+            {
+                "role": "system",
+                "content": (
+                    "Tone and formality guidelines:\n"
+                    "1. SENSITIVE TOPICS (terrorism, violence, death, tragedy, war crimes, genocide, serious historical atrocities):\n"
+                    "   - ALWAYS use formal, respectful tone regardless of user's style\n"
+                    "   - NEVER use emojis, casual phrases, or exclamation marks\n"
+                    "   - Be factual, clear, and appropriately serious\n"
+                    "2. CASUAL TOPICS (general chat, lighthearted questions, everyday topics):\n"
+                    "   - Match the user's tone and energy\n"
+                    "   - If they write in lowercase, you can too\n"
+                    "   - Be playful with playful messages\n"
+                    "\n"
+                    "3. TECHNICAL/EDUCATIONAL TOPICS:\n"
+                    "   - Use clear, professional language\n"
+                    "   - Be concise and informative\n"
+                    "\n"
+                    "Read the context and adapt appropriately. When in doubt about sensitivity, err on the side of formality."
                 ),
             },
             {
