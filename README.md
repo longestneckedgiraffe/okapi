@@ -11,9 +11,23 @@ Use the package manager [pip](https://pip.pypa.io/en/stable/) to install Okapi's
 pip install -r requirements.txt
 ```
 
+## Setup
+
+1. Copy `.env.example` to `.env` and add your fields
+   - `DISCORD_TOKEN`
+   - `GUILD_IDS`
+   - `MISTRAL_API_KEY`
+
+2. Run the bot
+```bash
+python src/bot.py
+```
+
+3. Use `/ask` in Discord to chat with Okapi
+
 ## Contributing
 
-Contributions are temporarily closed while in active development
+There's currently no plans for contribution
 
 ## License
 

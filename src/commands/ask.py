@@ -6,22 +6,10 @@ from discord import app_commands
 from datetime import datetime, timezone
 
 from embeds import build_error_embed, build_success_embed
-from config import MODEL_DISPLAY_NAME, DATA_ENCRYPTION_KEY
+from config import MODEL_DISPLAY_NAME
 from mistral_client import MistralClient
-from context_manager import ContextManager
-from context_tools import ContextTools, process_tool_calls
-
-
-context_manager = None
-context_tools = None
-
-
-def get_context_manager():
-    global context_manager, context_tools
-    if context_manager is None:
-        context_manager = ContextManager()
-        context_tools = ContextTools(context_manager)
-    return context_manager, context_tools
+from context_tools import process_tool_calls
+from commands.shared import get_context_manager
 
 
 @app_commands.command(name="ask", description="Ask Okapi a question (context-aware)")
@@ -70,17 +58,17 @@ async def ask(interaction: discord.Interaction, query: str):
                 "role": "system",
                 "content": (
                     f"The current user's preferred name is '{user_preferred_name}'. "
-                    "Address them by name when appropriate and do not invent personal details."
+                    "Address them by name only during greeting and do not invent personal details."
                 ),
             },
             {
                 "role": "system",
                 "content": (
-                    "You have access to conversation history tools. Use them ONLY when necessary:\n"
-                    "- Use 'fetch_recent_messages' if the user references previous messages, asks follow-up questions, or mentions 'earlier', 'before', 'previously', etc.\n"
-                    "- Use 'search_conversation_history' if the user asks about specific past topics or conversations.\n"
-                    "- For simple, standalone questions that don't require prior context, respond directly without using tools.\n"
-                    "Be efficient - don't fetch context unless it's needed to answer the question properly."
+                    "You have access to conversation history tools. You should use them for virtually all messages to maintain conversational continuity:\n"
+                    "- Use 'fetch_recent_messages' by default to understand the conversation flow and provide contextually relevant responses.\n"
+                    "- Use 'search_conversation_history' when the user asks about specific past topics or when recent messages aren't sufficient.\n"
+                    "- ONLY skip context tools if the user is asking a completely standalone question that has no possible relation to previous conversation (e.g., 'what is 2+2?', 'define photosynthesis').\n"
+                    "When in doubt, fetch context. Better to have context and not need it than to miss important conversational cues."
                 ),
             },
             {
@@ -154,7 +142,7 @@ async def ask(interaction: discord.Interaction, query: str):
             choice = data.get("choices", [{}])[0]
             message = choice.get("message", {})
 
-        # Some providers return content as a list of parts; normalize to string
+        # Some providers return content as a list of parts; normalize to string, this is not an issue for Mistral
         raw_content = message.get("content", "")
         if isinstance(raw_content, list):
             parts: list[str] = []
@@ -203,175 +191,3 @@ async def ask(interaction: discord.Interaction, query: str):
             embed=build_error_embed("Mistral error", str(e), footer_text="No model"),
             ephemeral=True,
         )
-
-
-@app_commands.command(
-    name="amnesia", description="Clear conversation history for this channel"
-)
-async def amnesia_command(interaction: discord.Interaction):
-    channel_id = str(interaction.channel_id)
-    context_mgr, ctx_tools = get_context_manager()
-
-    context = await context_mgr.get_conversation_context(
-        channel_id, create_if_missing=False
-    )
-
-    if not context or not context.messages:
-        embed = build_success_embed(
-            "No Memory Found",
-            "There's no conversation history to clear in this channel.",
-            footer_text="No model",
-        )
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-
-    await context_mgr.clear_conversation(channel_id)
-    embed = build_success_embed(
-        "Memory Cleared",
-        f"Successfully cleared {len(context.messages)} messages from conversation history.",
-        footer_text="No model",
-    )
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-@app_commands.command(
-    name="usage", description="Show conversation context and usage statistics"
-)
-@app_commands.describe(
-    detailed="Show detailed conversation information including recent messages"
-)
-async def usage_command(interaction: discord.Interaction, detailed: bool = False):
-    channel_id = str(interaction.channel_id)
-    context_mgr, ctx_tools = get_context_manager()
-
-    context = await context_mgr.get_conversation_context(
-        channel_id, create_if_missing=False
-    )
-
-    if not context or not context.messages:
-        # Use discord.Embed with fields for all data
-        embed = discord.Embed(
-            title="No Conversation Data", color=discord.Color(0x7ED957)
-        )
-        embed.add_field(
-            name="Status",
-            value="No conversation history found for this channel.",
-            inline=False,
-        )
-        embed.set_footer(text="No model")
-        embed.timestamp = discord.utils.utcnow()
-        await interaction.response.send_message(embed=embed, ephemeral=True)
-        return
-
-    # Build embed using discord.py's Embed and fields
-    embed = discord.Embed(title="Conversation Usage", color=discord.Color(0x7ED957))
-    embed.set_footer(text="No model")
-    embed.timestamp = discord.utils.utcnow()
-
-    # Individual fields
-    total_messages = len(context.messages)
-    user_messages = sum(1 for msg in context.messages if not msg.is_bot)
-    bot_messages = total_messages - user_messages
-
-    embed.add_field(name="Channel", value=str(channel_id), inline=True)
-    embed.add_field(name="Messages", value=str(total_messages), inline=True)
-    embed.add_field(name="User Messages", value=str(user_messages), inline=True)
-    embed.add_field(name="Bot Messages", value=str(bot_messages), inline=True)
-    embed.add_field(name="Total Tokens", value=str(context.total_tokens), inline=True)
-    embed.add_field(
-        name="Context Limit", value=str(context_mgr.max_context_tokens), inline=True
-    )
-
-    # Age and activity
-    import time as _time
-
-    age_hours = (_time.time() - context.created_at) / 3600
-    inactive_hours = (_time.time() - context.last_activity) / 3600
-    embed.add_field(name="Age", value=f"{age_hours:.1f}h", inline=True)
-    embed.add_field(
-        name="Last Activity", value=f"{inactive_hours:.1f}h ago", inline=True
-    )
-
-    if detailed and context.messages:
-        recent_msgs = (
-            context.messages[-5:] if len(context.messages) > 5 else context.messages
-        )
-        if recent_msgs:
-            recent_text = "\n".join(
-                [
-                    f"**{msg.author_name}**: {msg.content[:80]}{'...' if len(msg.content) > 80 else ''}"
-                    for msg in recent_msgs
-                ]
-            )
-            embed.add_field(
-                name="Recent Messages", value=recent_text[:1024], inline=False
-            )
-
-        user_tokens = sum(msg.token_count for msg in context.messages if not msg.is_bot)
-        bot_tokens = sum(msg.token_count for msg in context.messages if msg.is_bot)
-        embed.add_field(name="User Tokens", value=str(user_tokens), inline=True)
-        embed.add_field(name="Bot Tokens", value=str(bot_tokens), inline=True)
-
-        if context.total_tokens > context_mgr.max_context_tokens * 0.8:
-            health = "Near limit"
-        elif context.total_tokens > context_mgr.max_context_tokens * 0.6:
-            health = "Sub-optimal"
-        else:
-            health = "Optimal"
-        embed.add_field(name="Memory Health", value=health, inline=True)
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-@app_commands.command(
-    name="security", description="Show encryption status and context storage details"
-)
-async def security_command(interaction: discord.Interaction):
-    embed = discord.Embed(title="Security", color=discord.Color(0x7ED957))
-    embed.set_footer(text="No model")
-    embed.timestamp = discord.utils.utcnow()
-    key_active = bool(DATA_ENCRYPTION_KEY and DATA_ENCRYPTION_KEY.strip())
-    embed.add_field(
-        name="Key Active", value=("Yes" if key_active else "No"), inline=True
-    )
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
-
-
-@app_commands.command(
-    name="privacy", description="Okapi privacy & data handling policy"
-)
-async def privacy_command(interaction: discord.Interaction):
-    embed = discord.Embed(title="Privacy", color=discord.Color(0x7ED957))
-    embed.set_footer(text="No model")
-    embed.timestamp = discord.utils.utcnow()
-    embed.add_field(
-        name="Encryption at Rest",
-        value=(
-            "Conversation data is encrypted at rest using AEAD (AES-GCM) when a server key is configured."
-        ),
-        inline=False,
-    )
-    embed.add_field(
-        name="Limited Retention",
-        value=(
-            "Conversations are pruned for relevance and can be cleared any time with /amnesia."
-        ),
-        inline=False,
-    )
-    embed.add_field(
-        name="No Sensitive Data",
-        value=(
-            "Okapi does not store or transmit sensitive information beyond what is needed to fulfill your request."
-        ),
-        inline=False,
-    )
-    embed.add_field(
-        name="Open Source",
-        value=(
-            "View the code on GitHub: https://github.com/longestneckedgiraffe/okapi"
-        ),
-        inline=False,
-    )
-
-    await interaction.response.send_message(embed=embed, ephemeral=True)
